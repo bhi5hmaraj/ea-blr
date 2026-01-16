@@ -9,10 +9,17 @@ import {
   getContentPrompt,
 } from '@/lib/extraction-schemas';
 import { badRequest } from '../http/errors';
+import { kernelLogger } from '../logger';
 
-const baseURL = process.env.LITELLM_BASE_URL || 'https://asgard.bhishmaraj.org';
-const apiKey = process.env.LITELLM_API_KEY;
-// Structured outputs require specific models: gpt-4o-2024-08-06 or later
+// Config is read at module load time (after entry.ts loads dotenv)
+const litellmApiKey = process.env.LITELLM_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const apiKey = litellmApiKey || openaiApiKey;
+
+const baseURL = litellmApiKey
+  ? (process.env.LITELLM_BASE_URL || 'https://asgard.bhishmaraj.org')
+  : undefined;
+
 const model = process.env.LLM_MODEL || 'gpt-4o-2024-08-06';
 const timeoutMs = Number(process.env.LLM_TIMEOUT_MS || '30000');
 
@@ -25,18 +32,19 @@ declare global {
 
 function getClient(): InstanceType<typeof OpenAI> {
   if (!apiKey) {
-    throw new Error('Missing LiteLLM configuration. Set LITELLM_API_KEY.');
+    throw new Error('Missing LLM configuration. Set LITELLM_API_KEY or OPENAI_API_KEY.');
   }
 
-  const signature = `${baseURL}|${model}|${timeoutMs}|${apiKey.slice(-4)}`;
+  const signature = `${baseURL ?? 'openai'}|${model}|${timeoutMs}|${apiKey.slice(-4)}`;
   if (!globalThis.__SENSEMAKER_LLM_CLIENT__ || globalThis.__SENSEMAKER_LLM_SIG__ !== signature) {
     globalThis.__SENSEMAKER_LLM_CLIENT__ = new OpenAI({
       apiKey,
-      baseURL,
+      ...(baseURL && { baseURL }),
       timeout: timeoutMs,
       maxRetries: 1,
     });
     globalThis.__SENSEMAKER_LLM_SIG__ = signature;
+    kernelLogger.info({ baseURL: baseURL ?? 'api.openai.com', model, timeoutMs }, 'LLM client initialized');
   }
 
   return globalThis.__SENSEMAKER_LLM_CLIENT__;
@@ -54,9 +62,12 @@ async function extractJobListing(
   sourceRef: string | null
 ): Promise<typeof JobListingV1._type> {
   const client = getClient();
+  const startTime = Date.now();
 
   const systemPrompt = getExtractionPrompt('JOB', CURRENT_SCHEMA_VERSION);
   const userPrompt = getContentPrompt(text, sourceRef);
+
+  kernelLogger.debug({ sourceRef, textLength: text.length }, 'Starting LLM extraction');
 
   const response = await client.beta.chat.completions.parse({
     model,
@@ -68,17 +79,27 @@ async function extractJobListing(
     response_format: zodResponseFormat(JobListingV1, 'job_listing'),
   });
 
+  const durationMs = Date.now() - startTime;
   const message = response.choices[0]?.message;
 
   // Check for refusal (content policy)
   if (message?.refusal) {
+    kernelLogger.warn({ refusal: message.refusal, durationMs }, 'LLM refused extraction');
     throw new Error(`LLM refused to extract: ${message.refusal}`);
   }
 
   const parsed = message?.parsed;
   if (!parsed) {
+    kernelLogger.error({ durationMs }, 'LLM returned no parsed content');
     throw new Error('LLM returned no parsed content');
   }
+
+  kernelLogger.info({
+    title: parsed.title,
+    org: parsed.organization,
+    durationMs,
+    usage: response.usage,
+  }, 'LLM extraction complete');
 
   return parsed;
 }

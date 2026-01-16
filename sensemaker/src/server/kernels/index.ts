@@ -72,12 +72,20 @@ export function getKernelRegistry(): KernelRegistry {
 
   const provider = process.env.LLM_PROVIDER?.toLowerCase();
   const hasLiteLLM = Boolean(process.env.LITELLM_API_KEY);
+  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
+  const isDev = process.env.NODE_ENV !== 'production';
 
   if (provider === 'mock' || provider === 'local') {
+    console.log('[Kernel] Using MockJobKernel (LLM_PROVIDER=mock)');
     cachedRegistry = new StaticKernelRegistry([new MockJobKernel()]);
-  } else if (hasLiteLLM) {
+  } else if (hasLiteLLM || hasOpenAI) {
+    console.log(`[Kernel] Using OpenAIJobKernel (${hasLiteLLM ? 'LiteLLM' : 'OpenAI'} API)`);
     cachedRegistry = new StaticKernelRegistry([new OpenAIJobKernel()]);
+  } else if (isDev) {
+    console.log('[Kernel] No API key configured, using MockJobKernel for development');
+    cachedRegistry = new StaticKernelRegistry([new MockJobKernel()]);
   } else {
+    console.warn('[Kernel] No LLM configured! Set LITELLM_API_KEY or OPENAI_API_KEY');
     cachedRegistry = new StaticKernelRegistry([]);
   }
 
