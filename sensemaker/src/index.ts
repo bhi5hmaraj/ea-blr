@@ -4,11 +4,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { CreateObservationInput, ApproveRevisionInput, ObservationListQuery, RevisionListQuery, ListingListQuery } from '@/lib/schema';
-import { getDeps } from './deps';
-import { getStorage } from './storage';
-import { createObservationService, getObservationService, listObservationsService, processObservationService } from './services/observationService';
-import { listRevisionsService, getRevisionService, approveRevisionService, rejectRevisionService } from './services/revisionService';
-import { listListingsService, getListingService } from './services/listingService';
+import { getDeps } from './server/deps';
+import { getStorage } from './server/storage';
+import { createObservationService, getObservationService, listObservationsService, processObservationService } from './server/services/observationService';
+import { listRevisionsService, getRevisionService, approveRevisionService, rejectRevisionService } from './server/services/revisionService';
+import { listListingsService, getListingService } from './server/services/listingService';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -333,11 +333,13 @@ app.use('/storage', express.static(localStorageDir, {
 }));
 
 // =============================================================================
-// STATIC FILES (Production)
+// STATIC FILES (Production - Non-Vercel)
 // =============================================================================
 
-if (process.env.NODE_ENV === 'production') {
-  const clientPath = path.resolve(__dirname, '../../dist/client');
+// On Vercel, static files are served from public/ directory automatically
+// Only serve static files when running standalone (not on Vercel)
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+  const clientPath = path.resolve(__dirname, '../dist/client');
   app.use(express.static(clientPath));
 
   // SPA fallback - serve index.html for all non-API routes
@@ -349,7 +351,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // =============================================================================
-// START SERVER
+// START SERVER (Local/Standalone only)
 // =============================================================================
 
 function startServer(port: number, maxAttempts = 10): void {
@@ -372,4 +374,11 @@ function startServer(port: number, maxAttempts = 10): void {
   });
 }
 
-startServer(Number(PORT));
+// Only start server when running locally (not on Vercel)
+// On Vercel, the app is exported and Vercel handles the server
+if (!process.env.VERCEL) {
+  startServer(Number(PORT));
+}
+
+// Export for Vercel
+export default app;

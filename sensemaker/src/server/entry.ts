@@ -23,4 +23,4 @@ serverLogger.info({
 }, 'Environment loaded');
 
 // Now dynamically import the server (after env vars are loaded)
-import('./index.js');
+import('../index.js');
