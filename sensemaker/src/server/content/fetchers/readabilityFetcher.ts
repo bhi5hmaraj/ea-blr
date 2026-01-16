@@ -80,16 +80,49 @@ export class ReadabilityFetcher implements ContentFetcher {
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
+    // Extract metadata for fallback and result
+    const docTitle = dom.window.document.title || null;
+    const metaDesc = dom.window.document.querySelector('meta[name="description"]')?.getAttribute('content');
+    const ogTitle = dom.window.document.querySelector('meta[property="og:title"]')?.getAttribute('content');
+    const ogDesc = dom.window.document.querySelector('meta[property="og:description"]')?.getAttribute('content');
+    const ogSiteName = dom.window.document.querySelector('meta[property="og:site_name"]')?.getAttribute('content');
+
     if (!article) {
-      // Gather diagnostic info
-      const docTitle = dom.window.document.title || '(no title)';
+      // Try fallback: use meta description if available (common for JS-rendered job boards)
+      const fallbackContent = metaDesc || ogDesc;
+      const fallbackTitle = ogTitle || docTitle;
+
+      if (fallbackContent && fallbackContent.length > 100) {
+        contentLogger.warn({
+          url,
+          htmlLength: html.length,
+          fallbackSource: metaDesc ? 'meta-description' : 'og-description',
+          fallbackLength: fallbackContent.length,
+        }, 'Readability failed, using meta description fallback');
+
+        // Format the fallback content as markdown
+        const markdown = fallbackTitle
+          ? `# ${fallbackTitle}\n\n${fallbackContent}`
+          : fallbackContent;
+
+        return {
+          url,
+          markdown: normalizeWhitespace(markdown),
+          title: fallbackTitle,
+          byline: null,
+          excerpt: fallbackContent.slice(0, 200),
+          siteName: ogSiteName ?? null,
+          contentType,
+        };
+      }
+
+      // No usable fallback - log and throw
       const bodyText = dom.window.document.body?.textContent?.slice(0, 200) || '(no body)';
-      const metaDesc = dom.window.document.querySelector('meta[name="description"]')?.getAttribute('content');
 
       contentLogger.error({
         url,
         htmlLength: html.length,
-        documentTitle: docTitle,
+        documentTitle: docTitle || '(no title)',
         metaDescription: metaDesc || null,
         bodyPreview: bodyText.replace(/\s+/g, ' ').trim(),
         contentType,
@@ -97,7 +130,7 @@ export class ReadabilityFetcher implements ContentFetcher {
 
       throw new Error(
         `Readability failed to parse article from ${url}. ` +
-        `HTML length: ${html.length}, title: "${docTitle}". ` +
+        `HTML length: ${html.length}, title: "${docTitle || '(no title)'}". ` +
         `The page may be JavaScript-rendered, require authentication, or have unusual structure.`
       );
     }
@@ -121,10 +154,10 @@ export class ReadabilityFetcher implements ContentFetcher {
     return {
       url,
       markdown,
-      title: article.title ?? dom.window.document.title ?? null,
+      title: article.title ?? docTitle ?? null,
       byline: article.byline ?? null,
       excerpt: article.excerpt ?? null,
-      siteName: article.siteName ?? null,
+      siteName: article.siteName ?? ogSiteName ?? null,
       contentType,
     };
   }
