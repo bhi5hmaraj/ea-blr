@@ -38,3 +38,4 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/*_migration.sql
+tsconfig.tsbuildinfo
