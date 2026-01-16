@@ -1,0 +1,31 @@
+version: "3.8"
+
+# Run Grafana Alloy for local development
+# Usage: docker-compose -f docker-compose.alloy.yml up
+
+services:
+  alloy:
+    image: grafana/alloy:latest
+    container_name: sensemaker-alloy
+    ports:
+      - "12345:12345"  # Alloy UI
+      - "12347:12347"  # Faro receiver
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /tmp/sensemaker/logs:/tmp/sensemaker/logs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - GRAFANA_CLOUD_LOGS_USER=${GRAFANA_CLOUD_LOGS_USER}
+      - GRAFANA_CLOUD_METRICS_USER=${GRAFANA_CLOUD_METRICS_USER}
+      - GRAFANA_CLOUD_TRACES_USER=${GRAFANA_CLOUD_TRACES_USER}
+      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
+      - NODE_ENV=${NODE_ENV:-development}
+      - CLUSTER_NAME=${CLUSTER_NAME:-local}
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --stability.level=generally-available
+    restart: unless-stopped

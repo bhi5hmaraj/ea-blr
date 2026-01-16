@@ -1,0 +1,158 @@
+// Grafana Alloy configuration for Sensemaker
+// Unified collector for logs (Loki), metrics (Prometheus), and frontend (Faro)
+
+// ============================================================================
+// FRONTEND: Faro Receiver - Collects browser logs, errors, and traces
+// ============================================================================
+faro.receiver "frontend" {
+  server {
+    listen_address = "0.0.0.0"
+    listen_port    = 12347
+    cors_allowed_origins = ["http://localhost:5173", "http://localhost:3000", "https://*.vercel.app"]
+  }
+
+  output {
+    logs   = [loki.process.faro_logs.receiver]
+    traces = [otelcol.exporter.otlp.grafana_cloud.input]
+  }
+}
+
+// Process Faro logs before sending to Loki
+loki.process "faro_logs" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  stage.static_labels {
+    values = {
+      source = "faro",
+      app    = "sensemaker-admin",
+    }
+  }
+}
+
+// ============================================================================
+// BACKEND: Collect JSON logs from application stdout/files
+// ============================================================================
+local.file_match "app_logs" {
+  path_targets = [{
+    __address__ = "localhost",
+    __path__    = "/tmp/sensemaker/logs/*.log",
+    job         = "sensemaker",
+    env         = env("NODE_ENV") != "" ? env("NODE_ENV") : "development",
+  }]
+}
+
+loki.source.file "app_logs" {
+  targets    = local.file_match.app_logs.targets
+  forward_to = [loki.process.backend_logs.receiver]
+}
+
+loki.process "backend_logs" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  // Parse JSON logs from pino
+  stage.json {
+    expressions = {
+      level   = "level",
+      module  = "module",
+      msg     = "msg",
+      service = "service",
+      time    = "time",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level   = "",
+      module  = "",
+      service = "",
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      source = "backend",
+    }
+  }
+
+  stage.timestamp {
+    source = "time"
+    format = "RFC3339"
+  }
+}
+
+// ============================================================================
+// METRICS: Scrape Prometheus metrics from backend
+// ============================================================================
+prometheus.scrape "backend" {
+  targets = [{
+    __address__ = "localhost:3001",
+  }]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
+
+// ============================================================================
+// DOCKER: Collect container logs (for production)
+// ============================================================================
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "label"
+    values = ["logging=enabled"]
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.process.backend_logs.receiver]
+  labels     = {
+    job = "sensemaker-docker",
+  }
+}
+
+// ============================================================================
+// OUTPUTS: Send to Grafana Cloud
+// ============================================================================
+
+// Loki for logs
+loki.write "grafana_cloud" {
+  endpoint {
+    url = "https://logs-prod-028.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOGS_USER")
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+
+  external_labels = {
+    cluster = env("CLUSTER_NAME") != "" ? env("CLUSTER_NAME") : "local",
+  }
+}
+
+// Prometheus for metrics
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push"
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_METRICS_USER")
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}
+
+// OTLP for traces (from Faro)
+otelcol.exporter.otlp "grafana_cloud" {
+  client {
+    endpoint = "tempo-prod-19-prod-ap-south-1.grafana.net:443"
+    auth     = otelcol.auth.basic.grafana_cloud.handler
+  }
+}
+
+otelcol.auth.basic "grafana_cloud" {
+  username = env("GRAFANA_CLOUD_TRACES_USER")
+  password = env("GRAFANA_CLOUD_API_KEY")
+}
