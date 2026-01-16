@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import type { ContentFetcher, FetchResult } from './types';
+import { contentLogger } from '../../logger';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -22,27 +23,100 @@ export class ReadabilityFetcher implements ContentFetcher {
   }
 
   async fetch(url: string): Promise<FetchResult> {
-    const response = await fetch(url, {
-      headers: {
-        'user-agent': DEFAULT_USER_AGENT,
-        accept: 'text/html,application/xhtml+xml',
-      },
-    });
+    contentLogger.debug({ url }, 'Fetching URL');
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch url: ${response.status}`);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          'user-agent': DEFAULT_USER_AGENT,
+          accept: 'text/html,application/xhtml+xml',
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown fetch error';
+      contentLogger.error({ url, error: message }, 'Network fetch failed');
+      throw new Error(`Network fetch failed for ${url}: ${message}`);
     }
 
-    const html = await response.text();
-    const dom = new JSDOM(html, { url });
+    if (!response.ok) {
+      contentLogger.error({
+        url,
+        status: response.status,
+        statusText: response.statusText,
+      }, 'HTTP error fetching URL');
+      throw new Error(`HTTP ${response.status} (${response.statusText}) fetching ${url}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    contentLogger.debug({ url, status: response.status, contentType }, 'Fetch successful');
+
+    let html: string;
+    try {
+      html = await response.text();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      contentLogger.error({ url, error: message }, 'Failed to read response body');
+      throw new Error(`Failed to read response body from ${url}: ${message}`);
+    }
+
+    contentLogger.debug({ url, htmlLength: html.length }, 'HTML received');
+
+    // Check for common non-parseable content
+    if (html.length < 100) {
+      contentLogger.warn({ url, htmlLength: html.length }, 'HTML content too short');
+      throw new Error(`HTML content too short (${html.length} bytes) from ${url}`);
+    }
+
+    let dom: JSDOM;
+    try {
+      dom = new JSDOM(html, { url });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      contentLogger.error({ url, error: message, htmlLength: html.length }, 'JSDOM parsing failed');
+      throw new Error(`JSDOM failed to parse HTML from ${url}: ${message}`);
+    }
+
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
     if (!article) {
-      throw new Error('Readability failed to parse article');
+      // Gather diagnostic info
+      const docTitle = dom.window.document.title || '(no title)';
+      const bodyText = dom.window.document.body?.textContent?.slice(0, 200) || '(no body)';
+      const metaDesc = dom.window.document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+      contentLogger.error({
+        url,
+        htmlLength: html.length,
+        documentTitle: docTitle,
+        metaDescription: metaDesc || null,
+        bodyPreview: bodyText.replace(/\s+/g, ' ').trim(),
+        contentType,
+      }, 'Readability failed to extract article content');
+
+      throw new Error(
+        `Readability failed to parse article from ${url}. ` +
+        `HTML length: ${html.length}, title: "${docTitle}". ` +
+        `The page may be JavaScript-rendered, require authentication, or have unusual structure.`
+      );
     }
 
-    const markdown = normalizeWhitespace(this.turndown.turndown(article.content));
+    let markdown: string;
+    try {
+      markdown = normalizeWhitespace(this.turndown.turndown(article.content));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      contentLogger.error({ url, error: message }, 'Turndown markdown conversion failed');
+      throw new Error(`Markdown conversion failed for ${url}: ${message}`);
+    }
+
+    contentLogger.info({
+      url,
+      title: article.title,
+      markdownLength: markdown.length,
+      siteName: article.siteName,
+    }, 'Article extracted successfully');
 
     return {
       url,
@@ -51,7 +125,7 @@ export class ReadabilityFetcher implements ContentFetcher {
       byline: article.byline ?? null,
       excerpt: article.excerpt ?? null,
       siteName: article.siteName ?? null,
-      contentType: response.headers.get('content-type'),
+      contentType,
     };
   }
 }

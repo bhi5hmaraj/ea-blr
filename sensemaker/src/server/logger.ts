@@ -108,3 +108,4 @@ export const serverLogger = createLogger('server');
 export const kernelLogger = createLogger('kernel');
 export const storageLogger = createLogger('storage');
 export const apiLogger = createLogger('api');
+export const contentLogger = createLogger('content');
