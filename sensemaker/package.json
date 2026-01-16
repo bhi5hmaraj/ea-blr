@@ -4,6 +4,9 @@
   "description": "Impact listings ingestion + curation with provenance",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.x <=22.x"
+  },
   "scripts": {
     "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:server": "tsx watch src/server/entry.ts",
