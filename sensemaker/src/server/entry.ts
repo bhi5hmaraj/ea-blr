@@ -5,10 +5,16 @@
  * runs before any other modules are loaded.
  */
 import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Get the directory of this file to resolve .env paths correctly
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '../..');
 
 // Load env files FIRST (order matters: .env.local overrides .env)
-config({ path: '.env' });
-config({ path: '.env.local', override: true });
+config({ path: path.join(rootDir, '.env') });
+config({ path: path.join(rootDir, '.env.local'), override: true });
 
 // Now import logger (after env vars are loaded)
 import { serverLogger } from './logger.js';
