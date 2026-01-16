@@ -94,6 +94,14 @@ export async function createObservationService(
   return observation;
 }
 
+export async function getObservationService(deps: Deps, id: string) {
+  const observation = await findObservationById(deps.prisma, id);
+  if (!observation) {
+    throw notFound('Observation not found');
+  }
+  return observation;
+}
+
 export async function listObservationsService(
   deps: Deps,
   params: {

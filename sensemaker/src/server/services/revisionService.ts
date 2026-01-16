@@ -42,6 +42,14 @@ export async function listRevisionsService(
   });
 }
 
+export async function getRevisionService(deps: Deps, revisionId: string) {
+  const revision = await findRevisionById(deps.prisma, revisionId);
+  if (!revision) {
+    throw notFound('Revision not found');
+  }
+  return revision;
+}
+
 export async function approveRevisionService(
   deps: Deps,
   revisionId: string,
@@ -71,4 +79,23 @@ export async function approveRevisionService(
   });
 
   return updatedRevision;
+}
+
+export async function rejectRevisionService(
+  deps: Deps,
+  revisionId: string,
+  notes: string | undefined,
+  actorId: string | null
+) {
+  const revision = await findRevisionById(deps.prisma, revisionId);
+  if (!revision) {
+    throw notFound('Revision not found');
+  }
+
+  return updateRevision(deps.prisma, revision.id, {
+    status: 'REJECTED',
+    notes: notes ?? undefined,
+    approvedBy: actorId,
+    approvedAt: deps.now(),
+  });
 }
