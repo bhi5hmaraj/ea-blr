@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '../lib/prisma';
 import { getKernelRegistry } from './kernels';
 
 export interface Deps {

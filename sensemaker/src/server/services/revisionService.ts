@@ -1,6 +1,6 @@
 import type { Prisma, $Enums } from '@prisma/client';
 import type { Deps } from '../deps';
-import { ApproveRevisionInput } from '@/lib/schema';
+import { ApproveRevisionInput } from '../../lib/schema';
 import { notFound } from '../http/errors';
 import { mergeJson } from '../utils';
 import { findRevisionById, listRevisions, updateRevision } from '../repositories/revisionRepo';

@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { CreateObservationInput, ApproveRevisionInput, ObservationListQuery, RevisionListQuery, ListingListQuery } from '@/lib/schema';
+import { CreateObservationInput, ApproveRevisionInput, ObservationListQuery, RevisionListQuery, ListingListQuery } from './lib/schema';
 import { getDeps } from './server/deps';
 import { getStorage } from './server/storage';
 import { createObservationService, getObservationService, listObservationsService, processObservationService } from './server/services/observationService';

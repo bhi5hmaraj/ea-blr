@@ -4,7 +4,7 @@ import {
   Observation,
   RevisionPayload,
   generateCanonicalKey,
-} from '@/lib/schema';
+} from '../../lib/schema';
 import { OpenAIJobKernel } from './openaiJobKernel';
 import { extractFirstUrl } from '../content';
 

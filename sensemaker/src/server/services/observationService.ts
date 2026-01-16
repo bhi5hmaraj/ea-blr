@@ -5,7 +5,7 @@ import {
   Observation as ObservationSchema,
   RevisionPayload,
   validateExtractedData,
-} from '@/lib/schema';
+} from '../../lib/schema';
 import { notFound, notImplemented } from '../http/errors';
 import { cleanUndefined } from '../utils';
 import { createObservation, findObservationById, listObservations, updateObservation } from '../repositories/observationRepo';

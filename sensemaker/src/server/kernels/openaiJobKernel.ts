@@ -1,13 +1,13 @@
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
-import type { Kernel, Observation, RevisionPayload } from '@/lib/schema';
-import { ListingKind, generateCanonicalKey } from '@/lib/schema';
+import type { Kernel, Observation, RevisionPayload } from '../../lib/schema';
+import { ListingKind, generateCanonicalKey } from '../../lib/schema';
 import {
   JobListingV1,
   CURRENT_SCHEMA_VERSION,
   getExtractionPrompt,
   getContentPrompt,
-} from '@/lib/extraction-schemas';
+} from '../../lib/extraction-schemas';
 import { badRequest } from '../http/errors';
 import { kernelLogger } from '../logger';
 
