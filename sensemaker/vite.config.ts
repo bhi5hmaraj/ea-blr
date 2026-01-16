@@ -5,10 +5,10 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   root: '.',
-  publicDir: 'public',
+  publicDir: false, // Don't copy from public dir (we build directly to it)
   build: {
-    outDir: 'dist/client',
-    emptyDirFirst: true,
+    outDir: 'public',
+    emptyOutDir: true,
   },
   server: {
     port: 5173,
