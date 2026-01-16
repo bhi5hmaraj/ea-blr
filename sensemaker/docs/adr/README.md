@@ -19,6 +19,9 @@ This directory contains the architectural decisions for the Sensemaker MVP.
 - [ADR-005: Authentication with Clerk](./005-clerk-authentication.md)
   - Decision to use Clerk for admin authentication and user management
 
+- [ADR-006: Content Storage Abstraction](./006-content-storage-abstraction.md)
+  - How to abstract storage details from higher layers (Proposed)
+
 ## ADR Format
 
 Each ADR follows this structure:
