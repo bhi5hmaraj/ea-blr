@@ -3,7 +3,6 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "devCommand": "pnpm dev",
-  "outputDirectory": "public",
   "rewrites": [
     {
       "source": "/api/:path*",
