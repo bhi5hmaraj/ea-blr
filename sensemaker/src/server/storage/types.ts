@@ -15,4 +15,4 @@ export interface StorageAdapter {
   putText(params: { content: string; pathnamePrefix: string; contentType: string }): Promise<StoredObject>;
 }
 
-export type StorageProvider = 'vercel-blob';
+export type StorageProvider = 'vercel-blob' | 'local';

@@ -1,3 +1,5 @@
+import { readFile } from 'fs/promises';
+import * as path from 'path';
 import { getContentFetcher } from './fetchers';
 import { getStorage } from '../storage';
 import { isHttpUrl } from './url';
@@ -10,7 +12,17 @@ export interface PreparedContent {
   rawFormat?: 'MARKDOWN' | 'TEXT' | 'HTML' | 'PDF' | 'IMAGE';
 }
 
+const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || '/tmp/sensemaker';
+
 async function fetchBlobText(url: string): Promise<string> {
+  // Handle local storage paths (e.g., /storage/2026-01-16/observations/...)
+  if (url.startsWith('/storage/')) {
+    const relativePath = url.replace('/storage/', '');
+    const filePath = path.join(LOCAL_STORAGE_DIR, relativePath);
+    return readFile(filePath, 'utf-8');
+  }
+
+  // Handle absolute URLs
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch blob (${response.status})`);

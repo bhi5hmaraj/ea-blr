@@ -1,6 +1,5 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { put } from '@vercel/blob';
-import { NextResponse } from 'next/server';
 import type { StorageAdapter, StoredObject, UploadPolicy } from './types';
 import { randomBytes } from 'crypto';
 
@@ -30,7 +29,9 @@ export class VercelBlobStorage implements StorageAdapter {
       },
     });
 
-    return NextResponse.json(response);
+    return new Response(JSON.stringify(response), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   async putText(params: {
