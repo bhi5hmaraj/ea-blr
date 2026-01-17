@@ -336,15 +336,15 @@ app.use('/storage', express.static(localStorageDir, {
 // STATIC FILES (Production - Non-Vercel)
 // =============================================================================
 
-// On Vercel, static files are served from public/ directory automatically
-// Only serve static files when running standalone (not on Vercel)
-if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-  const clientPath = path.resolve(__dirname, '../dist/client');
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  // In Docker/Cloud Run, public/ is at the same level as dist/
+  const clientPath = path.resolve(__dirname, '../public');
   app.use(express.static(clientPath));
 
   // SPA fallback - serve index.html for all non-API routes
   app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/storage')) {
       res.sendFile(path.join(clientPath, 'index.html'));
     }
   });
@@ -374,11 +374,8 @@ function startServer(port: number, maxAttempts = 10): void {
   });
 }
 
-// Only start server when running locally (not on Vercel)
-// On Vercel, the app is exported and Vercel handles the server
-if (!process.env.VERCEL) {
-  startServer(Number(PORT));
-}
+// Start the server
+startServer(Number(PORT));
 
-// Export for Vercel
+// Export for testing
 export default app;

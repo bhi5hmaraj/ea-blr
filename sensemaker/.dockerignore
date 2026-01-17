@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs (we build inside Docker)
+dist
+public/assets
+
+# Development files
+.env.local
+.env.development
+.env*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Test
+coverage
+.nyc_output
+
+# Vercel (not needed for Cloud Run)
+.vercel
+vercel.json
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs
+
+# Terraform/Infra
+infra
+cloudbuild*.yaml
+
+# Misc
+.nvmrc
+.eslintrc*
+.prettierrc*
+tsconfig.tsbuildinfo

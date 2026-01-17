@@ -1,0 +1,19 @@
+# Local development docker-compose for Sensemaker
+# Connects to host PostgreSQL instance
+# Usage: docker-compose up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://postgres@localhost:5432/postgres?schema=sensemaker
+      LITELLM_API_KEY: ${LITELLM_API_KEY:-}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash-lite}
