@@ -193,21 +193,41 @@ EOF
 
 ## Deployment
 
-Deployed to Google Cloud Run via Cloud Build.
+### Branch-based Development (GitHub Actions)
+
+We use a staging → production workflow:
 
 ```bash
-# Deploy
+# Develop on feature branches from staging
+git checkout staging
+git checkout -b feature/my-feature
+
+# Push and create PR to staging
+git push -u origin feature/my-feature
+# → Triggers PR checks (lint, type-check, build)
+
+# After merge to staging
+# → Auto-deploys to sensemaker-staging.run.app
+
+# Create PR from staging to main
+# → After merge, auto-deploys to production
+```
+
+**Environments:**
+- `staging` branch → `sensemaker-staging` (asia-south1)
+- `main` branch → `sensemaker` (asia-south1)
+
+See [docs/github-actions-setup.md](./docs/github-actions-setup.md) for complete setup.
+
+### Manual Deployment (Alternative)
+
+```bash
+# Deploy to production manually
 gcloud builds submit --config=cloudbuild.yaml
 ```
 
-The pipeline:
-1. Builds Docker image
-2. Pushes to Artifact Registry
-3. Runs database migrations
-4. Deploys to Cloud Run
-5. Smoke tests the deployment
-
 See [docs/infrastructure.md](./docs/infrastructure.md) for:
+- GitHub Actions setup
 - One-time GCP setup
 - Secret management
 - Troubleshooting

@@ -1,0 +1,70 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'sensemaker/**'
+
+defaults:
+  run:
+    working-directory: sensemaker
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.23.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: sensemaker/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Run type check
+        run: pnpm type-check
+
+      - name: Run linter
+        run: pnpm lint
+
+  build-test:
+    name: Build Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.23.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: sensemaker/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Mock env vars for build (not used at build time)
+          DATABASE_URL: postgresql://mock@localhost/mock
+          INFISICAL_CLIENT_ID: mock
+          INFISICAL_CLIENT_SECRET: mock
+          INFISICAL_PROJECT_ID: mock

@@ -6,8 +6,9 @@ Sensemaker is deployed as a Docker container on Google Cloud Run. The architectu
 - **Runtime**: Node.js 22 with Express server
 - **Database**: PostgreSQL (Neon for prod, local for dev)
 - **Secrets**: Infisical SDK for runtime secret injection
-- **CI/CD**: Google Cloud Build
+- **CI/CD**: GitHub Actions (preferred) or Google Cloud Build
 - **Container Registry**: Google Artifact Registry
+- **Environments**: Staging (on `staging` branch) and Production (on `main` branch)
 
 ## Architecture
 
@@ -241,7 +242,54 @@ gcloud builds log BUILD_ID
 gcloud run services describe sensemaker --region=asia-south1
 ```
 
-### Cloud Build Pipeline
+### GitHub Actions CI/CD (Recommended)
+
+We use GitHub Actions for automated deployments with branch-based development:
+
+**Branches:**
+- `staging` → Deploys to `sensemaker-staging` Cloud Run service
+- `main` → Deploys to `sensemaker` Cloud Run service (production)
+
+**Workflows:**
+1. **PR Checks** (`pr-checks.yml`) - Runs on PRs to `main` or `staging`
+   - Type checking
+   - Linting
+   - Build test
+
+2. **Deploy Staging** (`deploy-staging.yml`) - Runs on push to `staging`
+   - Builds with `staging-{sha}` tags
+   - Runs migrations
+   - Deploys to staging environment
+   - Posts deployment URL in commit comment
+
+3. **Deploy Production** (`deploy-production.yml`) - Runs on push to `main`
+   - Builds with `prod-{sha}` and `latest` tags
+   - Runs migrations
+   - Deploys to production environment
+   - Creates GitHub release
+   - Posts deployment URL in commit comment
+
+**Setup:** See [github-actions-setup.md](./github-actions-setup.md) for complete setup instructions including:
+- Workload Identity Federation configuration
+- GitHub repository secrets
+- Service account permissions
+- Development workflow
+
+**Development Flow:**
+```bash
+# Create feature branch from staging
+git checkout staging
+git pull
+git checkout -b feature/my-feature
+
+# Make changes, push, create PR to staging
+git push -u origin feature/my-feature
+
+# After merge to staging, test in staging environment
+# Then create PR from staging to main for production
+```
+
+### Cloud Build Pipeline (Alternative)
 
 The `cloudbuild.yaml` runs these steps:
 
@@ -256,7 +304,8 @@ The `cloudbuild.yaml` runs these steps:
 | Environment | Usage |
 |-------------|-------|
 | `dev` | Local development, localhost PostgreSQL |
-| `prod` | Cloud Run, Neon PostgreSQL |
+| `staging` | Cloud Run staging, separate Neon database |
+| `prod` | Cloud Run production, Neon PostgreSQL |
 
 ## Environment Variables
 

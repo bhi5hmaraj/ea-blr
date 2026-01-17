@@ -109,6 +109,30 @@ function buildContentRange(resource: string, start: number, count: number, total
 }
 
 // =============================================================================
+// HEALTH CHECK
+// =============================================================================
+
+app.get('/api/health', async (req, res) => {
+  try {
+    const deps = getDeps();
+    // Quick DB health check
+    await deps.prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'sensemaker',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// =============================================================================
 // OBSERVATIONS
 // =============================================================================
 

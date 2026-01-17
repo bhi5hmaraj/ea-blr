@@ -1,0 +1,112 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'sensemaker/**'
+      - '.github/workflows/deploy-staging.yml'
+
+defaults:
+  run:
+    working-directory: sensemaker
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: asia-south1
+  SERVICE_NAME: sensemaker-staging
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run (Staging)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-${{ github.sha }} \
+            --tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-latest
+
+      - name: Run database migrations
+        run: |
+          docker run \
+            --rm \
+            -e INFISICAL_CLIENT_ID="${{ secrets.INFISICAL_CLIENT_ID_STAGING }}" \
+            -e INFISICAL_CLIENT_SECRET="${{ secrets.INFISICAL_CLIENT_SECRET_STAGING }}" \
+            -e INFISICAL_PROJECT_ID="${{ secrets.INFISICAL_PROJECT_ID }}" \
+            -e INFISICAL_ENVIRONMENT=staging \
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-${{ github.sha }} \
+            node dist/migrate.js
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/sensemaker/app:staging-${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars="NODE_ENV=staging" \
+            --set-secrets="INFISICAL_CLIENT_ID=SENSEMAKER_INFISICAL_CLIENT_ID_STAGING:latest,INFISICAL_CLIENT_SECRET=SENSEMAKER_INFISICAL_CLIENT_SECRET_STAGING:latest,INFISICAL_PROJECT_ID=SENSEMAKER_INFISICAL_PROJECT_ID:latest,INFISICAL_ENVIRONMENT=SENSEMAKER_INFISICAL_ENVIRONMENT_STAGING:latest" \
+            --min-instances=0 \
+            --max-instances=3 \
+            --memory=1Gi \
+            --cpu=1 \
+            --timeout=60s
+
+      - name: Get service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+
+      - name: Smoke test deployment
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.url }}/api/health || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Staging deployment successful!"
+            echo "🌐 URL: ${{ steps.get-url.outputs.url }}"
+          else
+            echo "❌ Smoke test failed with status: $STATUS"
+            exit 1
+          fi
+
+      - name: Comment on commit
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `✅ **Staging deployment successful!**\n\n🌐 **URL:** ${{ steps.get-url.outputs.url }}\n📦 **Image:** \`staging-${{ github.sha }}\``
+            })
