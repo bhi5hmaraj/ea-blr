@@ -41,3 +41,4 @@ prisma/migrations/*_migration.sql
 tsconfig.tsbuildinfo
 /public/
 .infisical-token
+.infisical-creds

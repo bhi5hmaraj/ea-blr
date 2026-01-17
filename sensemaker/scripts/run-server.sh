@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and run Sensemaker Docker image locally with Infisical secrets
+# Build and run Sensemaker Docker image locally with Infisical SDK
 # Usage: ./scripts/run-server.sh
 
 set -e
@@ -29,36 +29,36 @@ if docker ps -aq -f name="$CONTAINER_NAME" | grep -q .; then
     docker rm "$CONTAINER_NAME" >/dev/null
 fi
 
-# Check for Infisical token
-INFISICAL_TOKEN_FILE="$PROJECT_DIR/.infisical-token"
-if [[ -z "$INFISICAL_TOKEN" ]]; then
-    if [[ -f "$INFISICAL_TOKEN_FILE" ]]; then
-        export INFISICAL_TOKEN=$(cat "$INFISICAL_TOKEN_FILE")
-    else
-        echo "Error: INFISICAL_TOKEN not set and .infisical-token file not found"
-        echo "Set INFISICAL_TOKEN env var or create .infisical-token file"
-        exit 1
-    fi
+# Load Infisical credentials from file or environment
+INFISICAL_CREDS_FILE="$PROJECT_DIR/.infisical-creds"
+if [[ -f "$INFISICAL_CREDS_FILE" ]]; then
+    echo "Loading Infisical credentials..."
+    source "$INFISICAL_CREDS_FILE"
 fi
 
-echo "Fetching secrets from Infisical..."
+# Check required credentials
+if [[ -z "$INFISICAL_CLIENT_ID" || -z "$INFISICAL_CLIENT_SECRET" || -z "$INFISICAL_PROJECT_ID" ]]; then
+    echo "Error: Infisical credentials not configured"
+    echo "Create .infisical-creds file with:"
+    echo "  INFISICAL_CLIENT_ID=your-client-id"
+    echo "  INFISICAL_CLIENT_SECRET=your-client-secret"
+    echo "  INFISICAL_PROJECT_ID=your-project-id"
+    echo "  INFISICAL_ENVIRONMENT=dev  # optional, defaults to dev"
+    exit 1
+fi
 
-# Fetch secrets to a temp env file
-ENV_FILE=$(mktemp)
-infisical secrets --silent -o dotenv > "$ENV_FILE"
+echo "Starting container with Infisical SDK..."
 
-echo "Starting container..."
-
-# Run container with env file
+# Run container - SDK will load secrets at runtime
 docker run -d \
     --name "$CONTAINER_NAME" \
     --network host \
-    --env-file "$ENV_FILE" \
+    -e "INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID}" \
+    -e "INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET}" \
+    -e "INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID}" \
+    -e "INFISICAL_ENVIRONMENT=${INFISICAL_ENVIRONMENT:-dev}" \
     -e "NODE_ENV=production" \
     sensemaker:latest
-
-# Clean up temp file
-rm -f "$ENV_FILE"
 
 echo ""
 echo "Container started: $CONTAINER_NAME"
