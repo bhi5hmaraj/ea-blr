@@ -178,9 +178,11 @@ sensemaker/
 ```
 
 This installs a pre-push hook that:
-- Runs type checks, linting, and build tests before push
+- Builds Docker container (same as production) to validate build
 - On `main` branch: optionally deploys to production
 - On `staging` branch: reminds about GitHub Actions deployment
+
+**Note:** Hook runs Docker build which takes 1-2 minutes. Skip with `git push --no-verify` if needed.
 
 ### Commands
 

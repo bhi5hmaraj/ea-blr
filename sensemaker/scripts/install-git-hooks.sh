@@ -54,41 +54,17 @@ do
     # Change to sensemaker directory
     cd sensemaker
 
-    echo -e "${BLUE}📦 Installing dependencies...${NC}"
-    pnpm install --frozen-lockfile > /dev/null 2>&1 || {
-        echo -e "${RED}❌ pnpm install failed${NC}"
+    echo -e "${BLUE}🐳 Building Docker container (this validates the build)...${NC}"
+    docker build -t sensemaker:pre-push-check . || {
+        echo -e "${RED}❌ Docker build failed${NC}"
+        echo -e "${YELLOW}💡 This is the same build that will be deployed to production${NC}"
         exit 1
     }
 
-    echo -e "${BLUE}🔧 Generating Prisma client...${NC}"
-    pnpm db:generate > /dev/null 2>&1 || {
-        echo -e "${RED}❌ Prisma generate failed${NC}"
-        exit 1
-    }
+    echo -e "${GREEN}✅ Docker build successful!${NC}"
 
-    echo -e "${BLUE}🔍 Running type check...${NC}"
-    pnpm type-check || {
-        echo -e "${RED}❌ Type check failed${NC}"
-        exit 1
-    }
-
-    echo -e "${BLUE}🧹 Running linter...${NC}"
-    pnpm lint || {
-        echo -e "${RED}❌ Lint check failed${NC}"
-        exit 1
-    }
-
-    echo -e "${BLUE}🏗️  Running build...${NC}"
-    DATABASE_URL="postgresql://mock@localhost/mock" \
-    INFISICAL_CLIENT_ID="mock" \
-    INFISICAL_CLIENT_SECRET="mock" \
-    INFISICAL_PROJECT_ID="mock" \
-    pnpm build || {
-        echo -e "${RED}❌ Build failed${NC}"
-        exit 1
-    }
-
-    echo -e "${GREEN}✅ All checks passed!${NC}"
+    # Clean up the test image
+    docker rmi sensemaker:pre-push-check > /dev/null 2>&1 || true
 
     # If pushing to main or staging, ask about deployment
     if [[ "$branch" == "main" ]]; then
@@ -128,7 +104,7 @@ chmod +x "$REPO_ROOT/.git/hooks/pre-push"
 echo "✅ Git hooks installed successfully!"
 echo ""
 echo "The pre-push hook will:"
-echo "  • Run type checks, linting, and build tests"
+echo "  • Build Docker container (same as production)"
 echo "  • For main branch: optionally deploy to production"
 echo "  • For staging branch: remind about GitHub Actions deployment"
 echo ""
