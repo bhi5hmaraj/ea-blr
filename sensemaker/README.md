@@ -41,7 +41,11 @@ OAEA-SenseMaker embodies **D^4** principles:
 - Workflow orchestration for automated data pipelines
 - Visualization tools for link analysis and geospatial data
 
-See the [OAEA-SenseMaker Technical Blueprint](https://docs.google.com/document/d/1HBppladcaNpgLzoH8lur3fBPEcGFAxUZtnbpamgC6U8/edit?tab=t.0) for the full feasibility study and architecture.
+**Further Reading:**
+- [Vision synthesis](docs/vision-synthesis.md) - Synthesized vision, MVP scope, and next steps
+- [Design doc](docs/uber_design_doc.md) - Full design document
+- [OAEA-SenseMaker Technical Blueprint](https://docs.google.com/document/d/1HBppladcaNpgLzoH8lur3fBPEcGFAxUZtnbpamgC6U8/edit?tab=t.0) - Feasibility study and architecture
+- [NOTHG: D^4 Acceleration & OAEA Analysis](https://docs.google.com/document/d/1r3KzmOF0z3ZmHbzaj1t3PD9cUhrO8LimJhbIRBNGjg0/edit?tab=t.f9ju76kjacqh#heading=h.sf6035tyaraj) - Full analysis of OAEA vs AI-driven disempowerment
 
 ---
 
@@ -127,6 +131,7 @@ pnpm dev
 ```
 sensemaker/
 ├── docs/
+│   ├── vision-synthesis.md    # Vision + MVP scope synthesis
 │   ├── infrastructure.md      # Deployment & infra guide
 │   ├── uber_design_doc.md     # Full design document
 │   └── adr/                   # Architecture decisions
