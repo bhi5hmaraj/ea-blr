@@ -1,6 +1,6 @@
 #!/bin/bash
-# Build and run Sensemaker Docker image locally
-# Usage: ./scripts/build-local.sh
+# Build and run Sensemaker Docker image locally with Infisical secrets
+# Usage: ./scripts/run-server.sh
 
 set -e
 
@@ -29,26 +29,32 @@ if docker ps -aq -f name="$CONTAINER_NAME" | grep -q .; then
     docker rm "$CONTAINER_NAME" >/dev/null
 fi
 
-# Load environment variables from .env.local
-ENV_FILE="$PROJECT_DIR/.env.local"
-if [[ -f "$ENV_FILE" ]]; then
-    echo "Loading environment from .env.local..."
-    set -a
-    source "$ENV_FILE"
-    set +a
-else
-    echo "Warning: .env.local not found, using defaults"
+# Check for Infisical token
+INFISICAL_TOKEN_FILE="$PROJECT_DIR/.infisical-token"
+if [[ -z "$INFISICAL_TOKEN" ]]; then
+    if [[ -f "$INFISICAL_TOKEN_FILE" ]]; then
+        export INFISICAL_TOKEN=$(cat "$INFISICAL_TOKEN_FILE")
+    else
+        echo "Error: INFISICAL_TOKEN not set and .infisical-token file not found"
+        echo "Set INFISICAL_TOKEN env var or create .infisical-token file"
+        exit 1
+    fi
 fi
 
-# Run the container
+echo "Fetching secrets from Infisical..."
+
+# Fetch secrets and export as env vars
+eval $(infisical secrets --silent -o dotenv | sed 's/^/export /')
+
+# Run the container with secrets
 echo "Starting container..."
 docker run -d \
     --name "$CONTAINER_NAME" \
     --network host \
-    -e "DATABASE_URL=${DATABASE_URL:-postgresql://postgres@localhost:5432/postgres?schema=sensemaker}" \
-    -e "LITELLM_API_KEY=${LITELLM_API_KEY:-}" \
-    -e "LITELLM_BASE_URL=${LITELLM_BASE_URL:-}" \
-    -e "LLM_MODEL=${LLM_MODEL:-gemini-2.5-flash-lite}" \
+    -e "DATABASE_URL=${DATABASE_URL}" \
+    -e "LITELLM_API_KEY=${LITELLM_API_KEY}" \
+    -e "LITELLM_BASE_URL=${LITELLM_BASE_URL}" \
+    -e "LLM_MODEL=${LLM_MODEL}" \
     -e "NODE_ENV=production" \
     sensemaker:latest
 
