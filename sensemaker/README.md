@@ -4,7 +4,50 @@ Impact listings ingestion + curation with provenance tracking.
 
 **Live:** https://sensemaker-u2lkftxw3a-el.a.run.app
 
-## Architecture
+## Vision: OAEA-SenseMaker
+
+This project is the foundation for **OAEA-SenseMaker** - an open-source, democratized data sense-making platform. Part of the Open Application Ecosystem for AI (OAEA), it aims to provide Palantir-like capabilities to individuals, MSMEs, and communities.
+
+### The Problem: Gradual Disempowerment Risk (GDR)
+
+As AI capabilities advance, there's a risk of "gradual disempowerment" - a slow erosion of human agency where:
+- Advanced analytics become exclusive to well-resourced elites
+- Economic and political power concentrates in AI-capable entities
+- The majority loses bargaining power and relevance
+
+### The Solution: D^4 Acceleration
+
+OAEA-SenseMaker embodies **D^4** principles:
+- **Defensive**: Tools that protect human agency
+- **Democratic**: Accessible to everyone, not just elites
+- **Decentralized**: Self-hostable, no central dependency
+- **Differential**: Benefits the less powerful more than the already powerful
+
+### Roadmap to Full Vision
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **MVP** | Impact listings curation | Current |
+| **Phase 1** | Personal knowledge assistant (chat-based) | Planned |
+| **Phase 2** | Citizen data journalism tools | Planned |
+| **Phase 3** | MSME market intelligence | Planned |
+| **Phase 4** | Full knowledge graph + orchestration (Kestra) | Planned |
+
+**Current MVP** handles the core data pipeline: ingest observations (text, HTML, PDF) → LLM extraction → curated listings with provenance. This proves the fundamental pattern of democratized sense-making.
+
+**Future capabilities** will add:
+- Chat interface for natural language queries
+- Knowledge graph for entity linking across sources
+- Workflow orchestration for automated data pipelines
+- Visualization tools for link analysis and geospatial data
+
+See the [OAEA-SenseMaker Technical Blueprint](https://docs.google.com/document/d/1HBppladcaNpgLzoH8lur3fBPEcGFAxUZtnbpamgC6U8/edit?tab=t.0) for the full feasibility study and architecture.
+
+---
+
+## Current Implementation
+
+### Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -220,6 +263,13 @@ Secrets are loaded at container startup. To rotate secrets:
 - [ADR-004](./docs/adr/004-kernel-based-one-to-many-mapping.md): One observation → many listings
 - [ADR-005](./docs/adr/005-clerk-authentication.md): Clerk authentication
 
+## Contributing
+
+This is part of the OAEA ecosystem. Contributions that align with the D^4 principles are welcome:
+- Democratizing access to data tools
+- Decentralizing control
+- Defending human agency
+
 ## License
 
-Private / Proprietary
+AGPL-3.0 - Ensuring the tool remains open and benefits everyone.
