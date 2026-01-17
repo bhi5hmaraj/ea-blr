@@ -43,20 +43,22 @@ fi
 
 echo "Fetching secrets from Infisical..."
 
-# Fetch secrets and export as env vars
-eval $(infisical secrets --silent -o dotenv | sed 's/^/export /')
+# Fetch secrets to a temp env file
+ENV_FILE=$(mktemp)
+infisical secrets --silent -o dotenv > "$ENV_FILE"
 
-# Run the container with secrets
 echo "Starting container..."
+
+# Run container with env file
 docker run -d \
     --name "$CONTAINER_NAME" \
     --network host \
-    -e "DATABASE_URL=${DATABASE_URL}" \
-    -e "LITELLM_API_KEY=${LITELLM_API_KEY}" \
-    -e "LITELLM_BASE_URL=${LITELLM_BASE_URL}" \
-    -e "LLM_MODEL=${LLM_MODEL}" \
+    --env-file "$ENV_FILE" \
     -e "NODE_ENV=production" \
     sensemaker:latest
+
+# Clean up temp file
+rm -f "$ENV_FILE"
 
 echo ""
 echo "Container started: $CONTAINER_NAME"
