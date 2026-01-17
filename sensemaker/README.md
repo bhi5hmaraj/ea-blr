@@ -170,6 +170,18 @@ sensemaker/
 - PostgreSQL 14+
 - Docker (for production testing)
 
+### First-Time Setup
+
+```bash
+# Install git hooks (recommended)
+./scripts/install-git-hooks.sh
+```
+
+This installs a pre-push hook that:
+- Runs type checks, linting, and build tests before push
+- On `main` branch: optionally deploys to production
+- On `staging` branch: reminds about GitHub Actions deployment
+
 ### Commands
 
 ```bash
@@ -179,6 +191,9 @@ pnpm db:migrate       # Run database migrations
 pnpm db:studio        # Open Prisma Studio
 pnpm type-check       # TypeScript check
 pnpm lint             # ESLint
+
+# Skip git hooks (if needed)
+git push --no-verify  # Skip pre-push checks
 ```
 
 ### Testing Production Build Locally
