@@ -116,7 +116,7 @@ jobs:
               prerelease: false
             });
 
-      - name: Comment on commit
+      - name: Comment on successful deployment
         if: success()
         uses: actions/github-script@v7
         with:
@@ -125,5 +125,17 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: context.sha,
-              body: `🚀 **Production deployment successful!**\n\n🌐 **URL:** ${{ steps.get-url.outputs.url }}\n📦 **Image:** \`prod-${{ github.sha }}\``
+              body: `🚀 **Production deployment successful!**\n\n🌐 **URL:** ${{ steps.get-url.outputs.url }}\n📦 **Image:** \`prod-${{ github.sha }}\`\n\n[View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            })
+
+      - name: Comment on failed deployment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `❌ **Production deployment failed!**\n\n📦 **Image:** \`prod-${{ github.sha }}\`\n\n[View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n⚠️ **Critical:** Check the workflow logs immediately. Production may be in an inconsistent state.`
             })

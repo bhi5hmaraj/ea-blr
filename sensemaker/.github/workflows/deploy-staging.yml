@@ -99,7 +99,7 @@ jobs:
             exit 1
           fi
 
-      - name: Comment on commit
+      - name: Comment on successful deployment
         if: success()
         uses: actions/github-script@v7
         with:
@@ -108,5 +108,17 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: context.sha,
-              body: `✅ **Staging deployment successful!**\n\n🌐 **URL:** ${{ steps.get-url.outputs.url }}\n📦 **Image:** \`staging-${{ github.sha }}\``
+              body: `✅ **Staging deployment successful!**\n\n🌐 **URL:** ${{ steps.get-url.outputs.url }}\n📦 **Image:** \`staging-${{ github.sha }}\`\n\n[View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            })
+
+      - name: Comment on failed deployment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `❌ **Staging deployment failed!**\n\n📦 **Image:** \`staging-${{ github.sha }}\`\n\n[View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n⚠️ Check the workflow logs for details.`
             })

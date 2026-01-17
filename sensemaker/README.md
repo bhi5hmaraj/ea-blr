@@ -1,8 +1,13 @@
 # Sensemaker
 
+[![Deploy Production](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/deploy-production.yml)
+[![Deploy Staging](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/deploy-staging.yml)
+[![PR Checks](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/bhi5hmaraj/ea-blr/actions/workflows/pr-checks.yml)
+
 Impact listings ingestion + curation with provenance tracking.
 
-**Live:** https://sensemaker-u2lkftxw3a-el.a.run.app
+**Live (Production):** https://sensemaker-u2lkftxw3a-el.a.run.app
+**Live (Staging):** https://sensemaker-staging-u2lkftxw3a-el.a.run.app *(deployed on first push to staging)*
 
 ## Vision: OAEA-SenseMaker
 
