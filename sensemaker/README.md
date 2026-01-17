@@ -1,168 +1,224 @@
-# Sensemaker MVP
+# Sensemaker
 
 Impact listings ingestion + curation with provenance tracking.
 
+**Live:** https://sensemaker-u2lkftxw3a-el.a.run.app
+
 ## Architecture
 
-This is a Next.js application with:
-- **Admin UI**: React-admin for curation interface
-- **API**: Next.js API routes for CRUD + processing
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  React Admin    │────▶│  Express API    │────▶│   PostgreSQL    │
+│  (Vite + MUI)   │     │  (Node.js 22)   │     │   (Prisma ORM)  │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   LiteLLM       │
+                        │  (LLM Proxy)    │
+                        └─────────────────┘
+```
+
+- **Frontend**: React Admin with Material UI
+- **Backend**: Express.js API server
 - **Database**: PostgreSQL via Prisma ORM
-- **Auth**: Clerk for user management
-- **Processing**: Manual LLM extraction with retry logic
+- **LLM**: LiteLLM proxy for extraction
+- **Deployment**: Google Cloud Run
+- **Secrets**: Infisical SDK
 
-See [docs/uber_design_doc.md](./docs/uber_design_doc.md) for full design rationale.
-
-## Architecture Decision Records
-
-- [ADR-001](./docs/adr/001-manual-processing-mvp.md): Manual processing (no background workers)
-- [ADR-002](./docs/adr/002-manual-deduplication.md): Manual deduplication strategy
-- [ADR-003](./docs/adr/003-llm-retry-and-error-handling.md): 3-retry policy with exponential backoff
-- [ADR-004](./docs/adr/004-kernel-based-one-to-many-mapping.md): One observation → many listings via kernel
-- [ADR-005](./docs/adr/005-clerk-authentication.md): Clerk authentication
-
-## Data Model
-
-### Core Entities
-
-**Observation** (evidence)
-- Raw content (text, HTML, PDF, image) from manual input or scraping
-- Processing state: PENDING → DONE/FAILED (with retry tracking)
-- Audit: createdBy, processedBy (Clerk user IDs)
-
-**Listing** (published identity)
-- Stable identity via `canonicalKey` (normalized URL or hash)
-- Points to one `selectedRevision` (current published version)
-- Types: JOB, NEWS
-
-**Revision** (structured interpretation)
-- LLM-extracted + optional human edits
-- Status: PENDING → APPROVED/REJECTED
-- Schema versioning for payload evolution
-- Provenance link back to source observation
-
-### Key Design Decisions
-
-1. **Append-only**: Observations and revisions are never deleted, only status changes
-2. **Pointer-based selection**: Listing.selectedRevisionId determines what's published
-3. **One-to-many mapping**: One observation can generate multiple listings (via kernel processor)
-4. **Retry logic**: 3 attempts with exponential backoff, tracked via processingAttempts
-5. **Auth tracking**: All mutations record Clerk userId for audit trail
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ (or 20+)
-- pnpm 8+
-- PostgreSQL 14+
-- Clerk account (free tier)
-- OpenAI API key
-
-### Installation
+## Quick Start
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your values:
-# - DATABASE_URL
-# - Clerk keys (from clerk.com)
-# - OPENAI_API_KEY
-
-# Generate Prisma client
-pnpm db:generate
-
-# Create database and run migrations
+# Set up local database
+echo 'DATABASE_URL="postgresql://postgres@localhost:5432/postgres?schema=sensemaker"' > .env
 pnpm db:migrate
 
 # Start dev server
 pnpm dev
 ```
 
-Visit `http://localhost:3000` for the admin interface.
+- Frontend: http://localhost:5173
+- API: http://localhost:3001/api
 
-### Database Commands
+## Data Model
 
-```bash
-# Generate Prisma client after schema changes
-pnpm db:generate
+### Core Entities
 
-# Create and apply migration
-pnpm db:migrate
+**Observation** - Raw evidence (text, HTML, PDF, image)
+- Processing state: PENDING → DONE/FAILED
+- Tracks creation and processing actors
 
-# Push schema without migration (dev only)
-pnpm db:push
+**Listing** - Published identity with stable `canonicalKey`
+- Points to one `selectedRevision` (current published version)
+- Types: JOB, NEWS
 
-# Open Prisma Studio (database GUI)
-pnpm db:studio
-```
+**Revision** - LLM-extracted structured data
+- Status: PENDING → APPROVED/REJECTED
+- Links back to source observation
+
+### Key Design Decisions
+
+1. **Append-only**: Observations and revisions are never deleted
+2. **One-to-many**: One observation can generate multiple listings
+3. **Retry logic**: 3 attempts with exponential backoff
+4. **Audit trail**: All mutations record actor ID
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/observations` | List observations |
+| POST | `/api/observations` | Create observation |
+| POST | `/api/observations/:id/process` | Trigger LLM extraction |
+| GET | `/api/revisions` | List revisions |
+| POST | `/api/revisions/:id/approve` | Approve revision |
+| POST | `/api/revisions/:id/reject` | Reject revision |
+| GET | `/api/listings` | List listings |
+| GET | `/api/listings/:id` | Get listing detail |
 
 ## Project Structure
 
 ```
 sensemaker/
 ├── docs/
-│   ├── adr/                    # Architecture decision records
-│   └── uber_design_doc.md      # Full design document
+│   ├── infrastructure.md      # Deployment & infra guide
+│   ├── uber_design_doc.md     # Full design document
+│   └── adr/                   # Architecture decisions
 ├── prisma/
-│   └── schema.prisma           # Database schema
+│   └── schema.prisma          # Database schema
+├── scripts/
+│   ├── run-server.sh          # Local Docker runner
+│   └── migrate.ts             # Migration with Infisical
 ├── src/
-│   ├── app/                    # Next.js app router
-│   │   ├── admin/              # React-admin UI
-│   │   ├── api/                # API routes
-│   │   └── sign-in/            # Auth pages
-│   ├── lib/
-│   │   ├── prisma.ts           # Prisma client singleton
-│   │   ├── kernel/             # LLM extraction kernels
-│   │   └── auth.ts             # Clerk helpers
-│   └── types/                  # Shared TypeScript types
-├── package.json
-└── tsconfig.json
+│   ├── bootstrap.ts           # Entry point (loads secrets)
+│   ├── server.ts              # Express server
+│   ├── server/
+│   │   ├── deps.ts            # Dependency injection
+│   │   ├── secrets.ts         # Infisical SDK
+│   │   └── services/          # Business logic
+│   ├── client/                # React Admin UI
+│   └── lib/
+│       ├── schema.ts          # Zod schemas
+│       └── kernel/            # LLM extraction
+├── Dockerfile                 # Multi-stage build
+├── cloudbuild.yaml            # CI/CD pipeline
+└── package.json
 ```
 
-## API Endpoints (Planned)
+## Development
 
-### Admin API
-- `POST /api/observations` - Create observation
-- `POST /api/observations/:id/process` - Trigger LLM extraction
-- `GET /api/observations` - List observations (with filters)
-- `GET /api/revisions` - List revisions
-- `POST /api/revisions/:id/approve` - Approve revision (sets as selected)
-- `GET /api/listings` - List listings
-- `GET /api/listings/:id` - Get listing with current revision
+### Prerequisites
 
-### Public API (Future)
-- `GET /api/public/listings` - Public listings feed
-- `GET /api/public/listings/:id` - Public listing detail
+- Node.js 20-22
+- pnpm 9+
+- PostgreSQL 14+
+- Docker (for production testing)
 
-## Development Workflow
+### Commands
 
-1. **Create observation** (manual paste/upload or scrape)
-2. **Process observation** (click "Process" button → triggers LLM)
-3. **Review revisions** (compare extracted vs current)
-4. **Approve revision** (marks as selected for listing)
-5. **Publish** (listing now shows approved revision)
+```bash
+pnpm dev              # Start dev server (frontend + backend)
+pnpm build            # Build for production
+pnpm db:migrate       # Run database migrations
+pnpm db:studio        # Open Prisma Studio
+pnpm type-check       # TypeScript check
+pnpm lint             # ESLint
+```
+
+### Testing Production Build Locally
+
+```bash
+# Create Infisical credentials
+cat > .infisical-creds << 'EOF'
+INFISICAL_CLIENT_ID=your-client-id
+INFISICAL_CLIENT_SECRET=your-client-secret
+INFISICAL_PROJECT_ID=your-project-id
+INFISICAL_ENVIRONMENT=dev
+EOF
+
+# Build and run Docker container
+./scripts/run-server.sh
+```
 
 ## Deployment
 
-Designed for Vercel deployment:
+Deployed to Google Cloud Run via Cloud Build.
 
 ```bash
-# Install Vercel CLI
-pnpm add -g vercel
-
 # Deploy
-vercel
-
-# Set environment variables in Vercel dashboard
-# Run migrations on production DB
+gcloud builds submit --config=cloudbuild.yaml
 ```
 
-See [ea-blr-wva.18](../.beads) for detailed deployment checklist.
+The pipeline:
+1. Builds Docker image
+2. Pushes to Artifact Registry
+3. Runs database migrations
+4. Deploys to Cloud Run
+5. Smoke tests the deployment
+
+See [docs/infrastructure.md](./docs/infrastructure.md) for:
+- One-time GCP setup
+- Secret management
+- Troubleshooting
+- Making changes
+
+## Important Caveats
+
+### Prisma + Runtime Secrets
+
+Prisma validates `DATABASE_URL` at import time. We solve this with a bootstrap pattern:
+
+```
+bootstrap.ts → loadSecretsFromInfisical() → import('./server.js')
+```
+
+**Don't** import Prisma or database code at the top level of bootstrap.ts.
+
+### Docker on Linux
+
+Containers need `--network host` to access localhost PostgreSQL:
+
+```bash
+docker run --network host sensemaker:latest
+```
+
+The `run-server.sh` script handles this automatically.
+
+### ESM Module Resolution
+
+Node.js ESM requires `.js` extensions in imports, but TypeScript doesn't add them. We use esbuild to bundle the server, which resolves all imports.
+
+```json
+"build:server": "esbuild src/bootstrap.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external"
+```
+
+### Cloud Run Public Access
+
+After first deploy, you must explicitly enable public access:
+
+```bash
+gcloud run services add-iam-policy-binding sensemaker \
+  --region=asia-south1 \
+  --member="allUsers" \
+  --role="roles/run.invoker"
+```
+
+### Secret Rotation
+
+Secrets are loaded at container startup. To rotate secrets:
+1. Update in Infisical
+2. Restart Cloud Run service (or wait for new deployment)
+
+## Architecture Decision Records
+
+- [ADR-001](./docs/adr/001-manual-processing-mvp.md): Manual processing (no background workers)
+- [ADR-002](./docs/adr/002-manual-deduplication.md): Manual deduplication strategy
+- [ADR-003](./docs/adr/003-llm-retry-and-error-handling.md): 3-retry policy with exponential backoff
+- [ADR-004](./docs/adr/004-kernel-based-one-to-many-mapping.md): One observation → many listings
+- [ADR-005](./docs/adr/005-clerk-authentication.md): Clerk authentication
 
 ## License
 

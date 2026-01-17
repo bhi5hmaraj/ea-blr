@@ -49,10 +49,30 @@ steps:
       - --all-tags
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}
 
+  # Run database migrations
+  - name: node:22-alpine
+    id: migrate
+    waitFor: ["push"]
+    entrypoint: sh
+    secretEnv:
+      - INFISICAL_CLIENT_ID
+      - INFISICAL_CLIENT_SECRET
+      - INFISICAL_PROJECT_ID
+    args:
+      - -c
+      - |
+        set -e
+        echo "Installing dependencies..."
+        npm install -g pnpm
+        pnpm install --frozen-lockfile
+
+        echo "Running migrations..."
+        INFISICAL_ENVIRONMENT=prod npx tsx scripts/migrate.ts
+
   # Deploy to Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: deploy
-    waitFor: ["push"]
+    waitFor: ["migrate"]
     entrypoint: gcloud
     args:
       - run
@@ -67,8 +87,8 @@ steps:
       - --cpu=1
       - --min-instances=0
       - --max-instances=10
-      - --set-secrets=DATABASE_URL=SENSEMAKER_DATABASE_URL:latest,LITELLM_API_KEY=SENSEMAKER_LITELLM_API_KEY:latest,LITELLM_BASE_URL=SENSEMAKER_LITELLM_BASE_URL:latest
-      - --set-env-vars=NODE_ENV=production,LLM_MODEL=gemini-2.5-flash-lite
+      - --set-secrets=INFISICAL_CLIENT_ID=SENSEMAKER_INFISICAL_CLIENT_ID:latest,INFISICAL_CLIENT_SECRET=SENSEMAKER_INFISICAL_CLIENT_SECRET:latest,INFISICAL_PROJECT_ID=SENSEMAKER_INFISICAL_PROJECT_ID:latest
+      - --set-env-vars=NODE_ENV=production,INFISICAL_ENVIRONMENT=prod
 
   # Smoke test
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -79,11 +99,20 @@ steps:
       - -c
       - |
         set -e
-        SERVICE_URL=$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.url)')
-        echo "Service URL: $SERVICE_URL"
+        SERVICE_URL=$$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.url)')
+        echo "Service URL: $$SERVICE_URL"
         echo "Testing health endpoint..."
-        curl -fsSL "$SERVICE_URL/api/health" || echo "Health check endpoint not available"
+        curl -fsSL "$$SERVICE_URL/api/health" || echo "Health check endpoint not available"
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$BUILD_ID
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/SENSEMAKER_INFISICAL_CLIENT_ID/versions/latest
+      env: INFISICAL_CLIENT_ID
+    - versionName: projects/$PROJECT_ID/secrets/SENSEMAKER_INFISICAL_CLIENT_SECRET/versions/latest
+      env: INFISICAL_CLIENT_SECRET
+    - versionName: projects/$PROJECT_ID/secrets/SENSEMAKER_INFISICAL_PROJECT_ID/versions/latest
+      env: INFISICAL_PROJECT_ID
